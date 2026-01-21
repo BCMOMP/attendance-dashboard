@@ -20,24 +20,18 @@ export default function AttendanceDashboard() {
   }, []);
 
   const fetchStudentRoster = async () => {
-    try {
-      const sheetUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=80330815`;
-      const response = await fetch(sheetUrl);
-      const csv = await response.text();
-
-      const lines = csv.trim().split('\n');
-      const rosterData = lines.slice(1).map((line, idx) => {
-        const values = line.split(',');
-        return {
-          id: idx,
-          studentId: values[0] || '',
-          grade: values[1] || '',
-          lastName: values[2] || '',
-          firstName: values[3] || '',
-          fullName: values[4] || '',
-          division: values[5] || '',
-        };
-      });
+  try {
+    const response = await fetch(`${APPS_SCRIPT_URL}?action=getStudentRoster`);
+    const data = await response.json();
+    
+    if (data.success) {
+      setStudentRoster(data.students);
+      console.log('Student Roster loaded:', data.students);
+    }
+  } catch (error) {
+    console.error('Error fetching student roster:', error);
+  }
+};
 
       setStudentRoster(rosterData);
       console.log('Student Roster loaded:', rosterData);
@@ -273,16 +267,22 @@ function ManualAttendance({ studentRoster }) {
 
       // Append each row to Google Sheet via Apps Script
       for (const row of rows) {
-        const response = await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ values: row })
-        });
+        const response = await fetch(`${APPS_SCRIPT_URL}?action=saveAttendance`, {
+  method: 'POST',
+  body: JSON.stringify({ 
+    students: studentsList,
+    date: currentDate,
+    startTime: startTime,
+    attendance: attendance
+  })
+});
 
-        const result = await response.json();
-        if (!result.success) {
-          throw new Error('Failed to save attendance');
-        }
-      }
+const result = await response.json();
+if (result.success) {
+  setStep('done');
+} else {
+  throw new Error(result.error);
+}
 
       setStep('done');
     } catch (err) {
